@@ -60,6 +60,20 @@ class CashSession(models.Model):
         readonly=True, copy=False,
     )
 
+    withdrawal_ids = fields.One2many(
+        'cash.withdrawal', 'session_id', string='Extracciones / retiros',
+    )
+    withdrawal_total = fields.Monetary(
+        string='Total retiros', compute='_compute_withdrawal_total',
+        currency_field='currency_id',
+    )
+
+    @api.depends('withdrawal_ids.amount', 'withdrawal_ids.state')
+    def _compute_withdrawal_total(self):
+        for s in self:
+            s.withdrawal_total = sum(
+                s.withdrawal_ids.filtered(lambda w: w.state == 'posted').mapped('amount'))
+
     currency_id = fields.Many2one(
         related='company_id.currency_id', readonly=True,
     )

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_cash_withdrawal_form" model="ir.ui.view">
+        <field name="name">cash.withdrawal.form</field>
+        <field name="model">cash.withdrawal</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_post" type="object" string="Registrar retiro"
+                            class="oe_highlight" invisible="state != 'draft'"
+                            confirm="Vas a registrar la salida de efectivo de la caja. ¿Confirmás?"/>
+                    <button name="action_cancel" type="object" string="Cancelar"
+                            invisible="state != 'posted'"
+                            confirm="Esto revierte el/los pagos generados. ¿Confirmás?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,posted"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="cash_register_id"
+                                   readonly="state != 'draft'"/>
+                            <field name="session_id"
+                                   readonly="state != 'draft'"/>
+                            <field name="journal_id"
+                                   readonly="state != 'draft'"/>
+                            <field name="allowed_journal_ids" invisible="1"/>
+                            <field name="date" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="partner_id"
+                                   readonly="state != 'draft'"/>
+                            <field name="amount" readonly="state != 'draft'"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="memo" placeholder="Motivo del retiro (opcional)"
+                               readonly="state != 'draft'"/>
+                    </group>
+                    <group string="Asiento generado" invisible="state == 'draft'">
+                        <field name="payment_id" readonly="1"/>
+                    </group>
+                    <div class="text-muted" invisible="state != 'draft'">
+                        <p>El retiro descuenta efectivo de la caja en la empresa comercial
+                           y lo carga a la cuenta particular del socio. No impacta en la S.A.</p>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_cash_withdrawal_list" model="ir.ui.view">
+        <field name="name">cash.withdrawal.list</field>
+        <field name="model">cash.withdrawal</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'cancelled'" decoration-info="state == 'draft'">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="cash_register_id"/>
+                <field name="partner_id"/>
+                <field name="journal_id"/>
+                <field name="amount" sum="Total"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'posted'"
+                       decoration-info="state == 'draft'"/>
+                <field name="company_id" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_cash_withdrawal_search" model="ir.ui.view">
+        <field name="name">cash.withdrawal.search</field>
+        <field name="model">cash.withdrawal</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="cash_register_id"/>
+                <filter name="posted" string="Registrados" domain="[('state','=','posted')]"/>
+                <filter name="draft" string="Borradores" domain="[('state','=','draft')]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="g_partner" string="Socio" context="{'group_by':'partner_id'}"/>
+                    <filter name="g_register" string="Caja" context="{'group_by':'cash_register_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_cash_withdrawal" model="ir.actions.act_window">
+        <field name="name">Extracciones / retiros</field>
+        <field name="res_model">cash.withdrawal</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Registrá una extracción de caja</p>
+            <p>Retiros de los propietarios y otras salidas de efectivo de la caja.
+               Marcá <b>Blanco</b> para que también impacte en la S.A., o
+               <b>Negro</b> para que quede solo en la empresa comercial.</p>
+        </field>
+    </record>
+
+</odoo>

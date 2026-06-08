@@ -8,4 +8,11 @@
         <field name="prefix">CAJA/%(year)s/</field>
         <field name="padding">5</field>
     </record>
+
+    <record id="seq_cash_withdrawal" model="ir.sequence">
+        <field name="name">Extracción / retiro de caja</field>
+        <field name="code">cash.withdrawal</field>
+        <field name="prefix">EXT/%(year)s/</field>
+        <field name="padding">5</field>
+    </record>
 </odoo>

@@ -5,4 +5,5 @@ from . import cash_register
 from . import cash_session
 from . import cash_session_line
 from . import account_payment
+from . import cash_withdrawal
 from . import cash_session_help

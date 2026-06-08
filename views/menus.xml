@@ -18,6 +18,13 @@
               action="action_cash_session"
               sequence="10"/>
 
+    <menuitem id="menu_cash_withdrawal"
+              name="Extracciones / retiros"
+              parent="menu_cash_session_root"
+              action="action_cash_withdrawal"
+              groups="cash_session.group_cash_withdrawal"
+              sequence="15"/>
+
     <menuitem id="menu_cash_register_main"
               name="Cajas físicas"
               parent="menu_cash_session_root"

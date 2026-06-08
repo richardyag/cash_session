@@ -11,13 +11,23 @@ class AccountPayment(models.Model):
              'otro identificador del banco). El cajero lo carga al confirmar '
              'el pago. Aparece en la minuta de rendición.',
     )
+    is_cash_withdrawal = fields.Boolean(
+        string='Es extracción de caja', default=False, copy=False,
+        help='Marca los pagos generados por una extracción/retiro de caja '
+             '(modelo cash.withdrawal). Quedan exentos del bloqueo de pagos a '
+             'proveedores de la caja.',
+    )
 
     @api.constrains('journal_id', 'payment_type', 'state')
     def _check_cash_session_outbound(self):
         """Si el journal pertenece a una caja con allow_payments_out=False,
-        no se puede crear/postear un payment outbound (pago a proveedor) desde acá."""
+        no se puede crear/postear un payment outbound (pago a proveedor) desde acá.
+        Las extracciones de caja (retiros) están exentas: tienen su propia
+        pantalla y control de acceso."""
         for p in self:
             if p.payment_type != 'outbound':
+                continue
+            if p.is_cash_withdrawal:
                 continue
             if not p.journal_id:
                 continue

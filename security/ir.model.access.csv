@@ -7,3 +7,5 @@ access_cash_session_line_user,cash.session.line user,model_cash_session_line,gro
 access_cash_session_line_manager,cash.session.line manager,model_cash_session_line,group_cash_manager,1,1,1,1
 access_cash_session_help_user,cash.session.help user,model_cash_session_help,group_cash_user,1,0,0,0
 access_cash_session_help_manager,cash.session.help manager,model_cash_session_help,group_cash_manager,1,1,1,1
+access_cash_withdrawal_wd,cash.withdrawal extracciones,model_cash_withdrawal,group_cash_withdrawal,1,1,1,1
+access_cash_withdrawal_manager,cash.withdrawal manager,model_cash_withdrawal,group_cash_manager,1,0,0,0
