@@ -85,10 +85,9 @@
                 <field name="cash_register_id"/>
                 <filter name="posted" string="Registrados" domain="[('state','=','posted')]"/>
                 <filter name="draft" string="Borradores" domain="[('state','=','draft')]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="g_partner" string="Socio" context="{'group_by':'partner_id'}"/>
-                    <filter name="g_register" string="Caja" context="{'group_by':'cash_register_id'}"/>
-                </group>
+                <separator/>
+                <filter name="g_partner" string="Socio" context="{'group_by':'partner_id'}"/>
+                <filter name="g_register" string="Caja" context="{'group_by':'cash_register_id'}"/>
             </search>
         </field>
     </record>
