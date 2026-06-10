@@ -7,9 +7,9 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_post" type="object" string="Registrar retiro"
+                    <button name="action_post" type="object" string="Registrar"
                             class="oe_highlight" invisible="state != 'draft'"
-                            confirm="Vas a registrar la salida de efectivo de la caja. ¿Confirmás?"/>
+                            confirm="Vas a registrar un movimiento de efectivo en la caja. ¿Confirmás?"/>
                     <button name="action_cancel" type="object" string="Cancelar"
                             invisible="state != 'posted'"
                             confirm="Esto revierte el/los pagos generados. ¿Confirmás?"/>
@@ -21,33 +21,39 @@
                     </div>
                     <group>
                         <group>
-                            <field name="cash_register_id"
-                                   readonly="state != 'draft'"/>
-                            <field name="session_id"
-                                   readonly="state != 'draft'"/>
-                            <field name="journal_id"
-                                   readonly="state != 'draft'"/>
+                            <field name="kind" readonly="state != 'draft'"/>
+                            <field name="direction" readonly="1"/>
+                            <field name="cash_register_id" readonly="state != 'draft'"/>
+                            <field name="session_id" readonly="state != 'draft'"/>
+                            <field name="journal_id" readonly="state != 'draft'"/>
                             <field name="allowed_journal_ids" invisible="1"/>
-                            <field name="date" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="partner_id"
-                                   readonly="state != 'draft'"/>
+                            <field name="date" readonly="state != 'draft'"/>
                             <field name="amount" readonly="state != 'draft'"/>
+                            <field name="partner_id" readonly="state != 'draft'"
+                                   required="kind in ('socio','proveedor','empleado','aporte')"
+                                   invisible="kind not in ('socio','proveedor','empleado','aporte')"/>
+                            <field name="dest_register_id" readonly="state != 'draft'"
+                                   required="kind == 'transfer'"
+                                   invisible="kind != 'transfer'"/>
+                            <field name="counterpart_account_id" readonly="state != 'draft'"
+                                   required="kind in ('gasto','ingreso')"
+                                   invisible="kind not in ('gasto','ingreso')"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="company_id" invisible="1"/>
                         </group>
                     </group>
                     <group>
-                        <field name="memo" placeholder="Motivo del retiro (opcional)"
-                               readonly="state != 'draft'"/>
+                        <field name="memo" placeholder="Motivo / detalle" readonly="state != 'draft'"/>
                     </group>
-                    <group string="Asiento generado" invisible="state == 'draft'">
+                    <group string="Pagos generados" invisible="state == 'draft'">
                         <field name="payment_id" readonly="1"/>
+                        <field name="payment_dest_id" readonly="1" invisible="kind != 'transfer'"/>
                     </group>
                     <div class="text-muted" invisible="state != 'draft'">
-                        <p>El retiro descuenta efectivo de la caja en la empresa comercial
-                           y lo carga a la cuenta particular del socio. No impacta en la S.A.</p>
+                        <p>El movimiento entra en el arqueo de la caja (la sesión tiene que estar abierta).
+                           Las salidas/ingresos quedan solo en la empresa comercial; no impactan la S.A.</p>
                     </div>
                 </sheet>
                 <chatter/>
@@ -59,17 +65,19 @@
         <field name="name">cash.withdrawal.list</field>
         <field name="model">cash.withdrawal</field>
         <field name="arch" type="xml">
-            <list decoration-muted="state == 'cancelled'" decoration-info="state == 'draft'">
+            <list decoration-muted="state == 'cancelled'" decoration-info="state == 'draft'"
+                  decoration-success="direction == 'in' and state == 'posted'"
+                  decoration-danger="direction == 'out' and state == 'posted'">
                 <field name="name"/>
                 <field name="date"/>
+                <field name="kind"/>
+                <field name="direction"/>
                 <field name="cash_register_id"/>
                 <field name="partner_id"/>
-                <field name="journal_id"/>
+                <field name="dest_register_id" optional="show"/>
                 <field name="amount" sum="Total"/>
                 <field name="state" widget="badge"
-                       decoration-success="state == 'posted'"
-                       decoration-info="state == 'draft'"/>
-                <field name="company_id" column_invisible="1"/>
+                       decoration-success="state == 'posted'" decoration-info="state == 'draft'"/>
                 <field name="currency_id" column_invisible="1"/>
             </list>
         </field>
@@ -83,24 +91,24 @@
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="cash_register_id"/>
-                <filter name="posted" string="Registrados" domain="[('state','=','posted')]"/>
-                <filter name="draft" string="Borradores" domain="[('state','=','draft')]"/>
+                <filter name="ingresos" string="Ingresos" domain="[('direction','=','in')]"/>
+                <filter name="egresos" string="Egresos" domain="[('direction','=','out')]"/>
                 <separator/>
-                <filter name="g_partner" string="Socio" context="{'group_by':'partner_id'}"/>
+                <filter name="posted" string="Registrados" domain="[('state','=','posted')]"/>
+                <filter name="g_kind" string="Concepto" context="{'group_by':'kind'}"/>
                 <filter name="g_register" string="Caja" context="{'group_by':'cash_register_id'}"/>
             </search>
         </field>
     </record>
 
     <record id="action_cash_withdrawal" model="ir.actions.act_window">
-        <field name="name">Extracciones / retiros</field>
+        <field name="name">Movimientos de caja</field>
         <field name="res_model">cash.withdrawal</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Registrá una extracción de caja</p>
-            <p>Retiros de los propietarios y otras salidas de efectivo de la caja.
-               Marcá <b>Blanco</b> para que también impacte en la S.A., o
-               <b>Negro</b> para que quede solo en la empresa comercial.</p>
+            <p class="o_view_nocontent_smiling_face">Registrá un movimiento de caja</p>
+            <p>Ingresos (aportes) y egresos (retiros de dueño, pagos a proveedor/empleado,
+               transferencias entre cajas) con la caja abierta. Todo entra en el arqueo.</p>
         </field>
     </record>
 

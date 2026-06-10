@@ -342,62 +342,63 @@ class CashSession(models.Model):
 
         self.state = 'closed'
 
-    def _transfer_to_central(self):
-        """Genera un account.move moviendo a la caja central únicamente
-        el efectivo (journals cash_session_kind='cash').
+    def _transfer_bridge_partner(self):
+        """Partner puente para mover efectivo entre cajas / a caja central, con
+        una cuenta de enlace (transferencias de liquidez)."""
+        company = self.company_id
+        Partner = self.env['res.partner']
+        p = Partner.sudo().search([('ref', '=', 'TRANSF-CAJAS')], limit=1)
+        if p:
+            return p
+        acc = company.transfer_account_id
+        if not acc:
+            acc = self.env['account.account'].sudo().with_company(company).search([
+                ('account_type', '=', 'asset_current'), ('reconcile', '=', True)], limit=1)
+        p = Partner.sudo().create({'name': 'Transferencias entre cajas', 'ref': 'TRANSF-CAJAS'})
+        if acc:
+            p.with_company(company).write({
+                'property_account_payable_id': acc.id,
+                'property_account_receivable_id': acc.id})
+        return p
 
-        Los cheques de tercero NO se transfieren: quedan en su cuenta de
-        cartera (Third Party Checks) — son instrumentos individuales que
-        l10n_latam_check trackea por cheque, no por caja física. La caja
-        física es solo el lugar de recepción inicial; el cheque pertenece
-        a la cartera de la compañía hasta que se endosa/deposita/devuelve.
+    def _transfer_to_central(self):
+        """Rinde el efectivo de la sesión a la caja central mediante pagos puente:
+        egreso en el journal de la sucursal + INGRESO en la caja central. Así la
+        caja central VE la rendición en su arqueo (cuenta como pago inbound).
+
+        Los pagos se crean en el cierre (create_date > date_close), por lo que NO
+        afectan el arqueo de esta sesión (que se calcula hasta date_close).
+        Los cheques de tercero NO se transfieren (quedan en cartera).
         """
         self.ensure_one()
         company = self.company_id
         central = company.cash_central_journal_id
         if not central:
             return
-
-        Move = self.env['account.move']
-        lines_to_create = []
+        bridge = self._transfer_bridge_partner()
+        Payment = self.env['account.payment']
+        first = False
         for cl in self.closing_line_ids:
             j = cl.journal_id
-            # Solo efectivo se transfiere a caja central
-            if j.cash_session_kind != 'cash':
+            if j.cash_session_kind != 'cash' or j == central:
                 continue
             amount = cl.physical_amount
             if not amount:
                 continue
-            origin_acc = j.default_account_id
-            dest_acc = central.default_account_id
-            if not origin_acc or not dest_acc:
-                continue
-            label = _('Transferencia cierre %(s)s — %(j)s', s=self.name, j=j.code or j.name)
-            lines_to_create.append((origin_acc, dest_acc, amount, label, j))
-
-        if not lines_to_create:
-            return
-
-        # Un único asiento con todas las líneas (más limpio para revisar)
-        move_lines = []
-        for origin_acc, dest_acc, amount, label, j in lines_to_create:
-            move_lines.append((0, 0, {
-                'account_id': origin_acc.id, 'name': label,
-                'credit': amount, 'debit': 0,
-            }))
-            move_lines.append((0, 0, {
-                'account_id': dest_acc.id, 'name': label,
-                'debit': amount, 'credit': 0,
-            }))
-        move = Move.create({
-            'journal_id': central.id,
-            'date': fields.Date.context_today(self),
-            'ref': _('Cierre sesión %s') % self.name,
-            'company_id': company.id,
-            'line_ids': move_lines,
-        })
-        move.action_post()
-        self.transfer_move_id = move.id
+            label = _('Rendición %(s)s — %(j)s', s=self.name, j=j.code or j.name)
+            out = Payment.sudo().with_company(company).create({
+                'payment_type': 'outbound', 'partner_type': 'supplier', 'partner_id': bridge.id,
+                'amount': amount, 'date': fields.Date.context_today(self), 'journal_id': j.id,
+                'company_id': company.id, 'memo': label, 'is_cash_transfer': True})
+            out.action_post()
+            inp = Payment.sudo().with_company(company).create({
+                'payment_type': 'inbound', 'partner_type': 'customer', 'partner_id': bridge.id,
+                'amount': amount, 'date': fields.Date.context_today(self), 'journal_id': central.id,
+                'company_id': company.id, 'memo': label, 'is_cash_transfer': True})
+            inp.action_post()
+            if not first and inp.move_id:
+                self.transfer_move_id = inp.move_id.id
+                first = True
 
     def action_print_handover(self):
         """Imprime el report de minuta de rendición de la sesión."""

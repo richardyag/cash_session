@@ -19,7 +19,7 @@
               sequence="10"/>
 
     <menuitem id="menu_cash_withdrawal"
-              name="Extracciones / retiros"
+              name="Movimientos de caja"
               parent="menu_cash_session_root"
               action="action_cash_withdrawal"
               groups="cash_session.group_cash_withdrawal"

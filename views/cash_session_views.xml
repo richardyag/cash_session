@@ -109,26 +109,26 @@
                             </field>
                         </page>
 
-                        <page string="Extracciones / retiros" name="withdrawals"
+                        <page string="Movimientos de caja" name="withdrawals"
                               invisible="state == 'draft'">
                             <field name="withdrawal_ids" readonly="1">
                                 <list>
                                     <field name="name"/>
                                     <field name="date"/>
+                                    <field name="kind"/>
+                                    <field name="direction"/>
                                     <field name="partner_id"/>
-                                    <field name="journal_id"/>
-                                    <field name="amount" widget="monetary" sum="Total retiros"/>
+                                    <field name="dest_register_id"/>
+                                    <field name="amount" widget="monetary" sum="Total"/>
                                     <field name="state" widget="badge"
                                            decoration-success="state == 'posted'"/>
                                     <field name="currency_id" column_invisible="True"/>
                                 </list>
                             </field>
-                            <group>
-                                <field name="withdrawal_total" widget="monetary"/>
-                            </group>
                             <p class="text-muted">
-                                Las extracciones registradas descuentan el efectivo
-                                esperado de esta caja, así el arqueo del cierre cuadra.
+                                Ingresos y egresos registrados en la caja. Entran en el
+                                arqueo (los egresos descuentan, los ingresos suman el
+                                efectivo esperado), así el cierre cuadra.
                             </p>
                         </page>
 
