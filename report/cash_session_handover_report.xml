@@ -95,7 +95,7 @@
                                     <td><span t-out="m['concept']"/></td>
                                     <td><span t-out="m['partner']"/></td>
                                     <td><span t-out="m['reference']"/></td>
-                                    <td class="text-center"><span t-out="m['date']"/></td>
+                                    <td class="text-center"><span t-out="m['date'] and m['date'].strftime('%d/%m')"/></td>
                                     <td class="text-end">
                                         <t t-if="m['amount_in']">
                                             <span t-out="m['amount_in']" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
