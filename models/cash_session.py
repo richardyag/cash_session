@@ -448,6 +448,64 @@ class CashSession(models.Model):
                 self.transfer_move_id = inp.move_id.id
                 first = True
 
+    def get_cash_movements(self):
+        """Lista clasificada de TODOS los movimientos de efectivo de la sesión,
+        para el detalle de la minuta. Cada pago en un journal de efectivo se
+        etiqueta por concepto (cobro de factura, transferencia entre cajas,
+        ingreso desde central, retiro, pago a proveedor, etc.) y se separa en
+        entrada/salida. Así el detalle dice QUÉ es cada línea, no solo 'cobros'.
+        """
+        self.ensure_one()
+        Payment = self.env['account.payment']
+        cash_journals = self.cash_register_id.journal_ids.filtered(
+            lambda j: j.cash_session_kind == 'cash')
+        if not cash_journals or not self.date_open:
+            return []
+        domain = [
+            ('journal_id', 'in', cash_journals.ids),
+            ('move_id.state', '=', 'posted'),
+            ('create_date', '>=', self.date_open),
+        ]
+        if self.date_close:
+            domain.append(('create_date', '<=', self.date_close))
+        payments = Payment.search(domain)
+        # Mapa pago -> movimiento de caja (cash.withdrawal) de esta sesión
+        wd_by_payment = {}
+        for w in self.withdrawal_ids.filtered(lambda w: w.state == 'posted'):
+            if w.payment_id:
+                wd_by_payment[w.payment_id.id] = w
+            if w.payment_dest_id:
+                wd_by_payment[w.payment_dest_id.id] = w
+        kind_labels = dict(self.env['cash.withdrawal']._fields['kind'].selection)
+        lines = []
+        for p in payments.sorted('date'):
+            w = wd_by_payment.get(p.id)
+            if p.reconciled_invoice_ids:
+                concept = _('Cobro de factura')
+                reference = ', '.join(p.reconciled_invoice_ids.mapped('name'))
+                partner = p.partner_id.name or ''
+            elif w:
+                concept = kind_labels.get(w.kind, _('Movimiento de caja'))
+                reference = w.memo or ''
+                partner = w.partner_id.name or (w.dest_register_id.name if w.dest_register_id else '')
+            elif p.is_cash_transfer:
+                concept = _('Transferencia entre cajas')
+                reference = p.memo or ''
+                partner = ''
+            else:
+                concept = _('Cobro') if p.payment_type == 'inbound' else _('Pago')
+                reference = p.memo or ''
+                partner = p.partner_id.name or ''
+            lines.append({
+                'date': p.date,
+                'concept': concept,
+                'partner': partner,
+                'reference': reference,
+                'amount_in': p.amount if p.payment_type == 'inbound' else 0.0,
+                'amount_out': p.amount if p.payment_type == 'outbound' else 0.0,
+            })
+        return lines
+
     def action_print_handover(self):
         """Imprime el report de minuta de rendición de la sesión."""
         self.ensure_one()

@@ -74,86 +74,36 @@
                           t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                 </p>
 
-                <!-- Detalle de cobranzas en efectivo (por comprobante / cliente) -->
-                <t t-set="cash_collections" t-value="o.cash_payment_ids.filtered(lambda p: not p.is_cash_withdrawal and not p.is_cash_transfer).sorted('date')"/>
-                <h5 class="mt-3">Detalle de cobranzas en efectivo</h5>
-                <t t-if="cash_collections">
+                <!-- Detalle de movimientos de efectivo (clasificado por concepto) -->
+                <t t-set="cash_moves" t-value="o.get_cash_movements()"/>
+                <h5 class="mt-3">Detalle de movimientos de efectivo</h5>
+                <t t-if="cash_moves">
                     <table class="table table-sm">
                         <thead>
                             <tr>
-                                <th>Comprobante</th>
-                                <th>Cliente</th>
-                                <th>Factura(s)</th>
-                                <th class="text-center">Fecha</th>
-                                <th class="text-end">Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <t t-foreach="cash_collections" t-as="p">
-                                <tr>
-                                    <td><span t-field="p.name"/></td>
-                                    <td><span t-field="p.partner_id.name"/></td>
-                                    <td><span t-out="', '.join(p.reconciled_invoice_ids.mapped('name'))"/></td>
-                                    <td class="text-center"><span t-field="p.date"/></td>
-                                    <td class="text-end">
-                                        <span t-field="p.amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                    </td>
-                                </tr>
-                            </t>
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="4" class="text-end"><strong>Total cobrado en efectivo:</strong></td>
-                                <td class="text-end">
-                                    <strong>
-                                        <span t-out="sum(cash_collections.mapped('amount'))"
-                                              t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
-                                    </strong>
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </t>
-                <t t-else="">
-                    <p class="text-muted">Sin cobranzas en efectivo en esta sesión.</p>
-                </t>
-
-                <!-- Detalle de movimientos de caja (por concepto) -->
-                <t t-set="movements" t-value="o.withdrawal_ids.filtered(lambda w: w.state == 'posted').sorted('date')"/>
-                <t t-if="movements">
-                    <h5 class="mt-3">Movimientos de caja (ingresos / egresos)</h5>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Comprobante</th>
                                 <th>Concepto</th>
-                                <th>Beneficiario / destino</th>
-                                <th>Motivo</th>
+                                <th>Cliente / beneficiario</th>
+                                <th>Comprobante / motivo</th>
                                 <th class="text-center">Fecha</th>
-                                <th class="text-end">Ingreso</th>
-                                <th class="text-end">Egreso</th>
+                                <th class="text-end">Entrada</th>
+                                <th class="text-end">Salida</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <t t-foreach="movements" t-as="w">
+                            <t t-foreach="cash_moves" t-as="m">
                                 <tr>
-                                    <td><span t-field="w.name"/></td>
-                                    <td><span t-field="w.kind"/></td>
-                                    <td>
-                                        <t t-if="w.partner_id"><span t-field="w.partner_id.name"/></t>
-                                        <t t-elif="w.dest_register_id"><span t-field="w.dest_register_id.name"/></t>
-                                        <t t-elif="w.kind == 'ingreso_central'"><span>Caja central</span></t>
-                                    </td>
-                                    <td><span t-field="w.memo"/></td>
-                                    <td class="text-center"><span t-field="w.date"/></td>
+                                    <td><span t-out="m['concept']"/></td>
+                                    <td><span t-out="m['partner']"/></td>
+                                    <td><span t-out="m['reference']"/></td>
+                                    <td class="text-center"><span t-out="m['date']"/></td>
                                     <td class="text-end">
-                                        <t t-if="w.direction == 'in'">
-                                            <span t-field="w.amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                        <t t-if="m['amount_in']">
+                                            <span t-out="m['amount_in']" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                         </t>
                                     </td>
                                     <td class="text-end">
-                                        <t t-if="w.direction == 'out'">
-                                            <span t-field="w.amount" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
+                                        <t t-if="m['amount_out']">
+                                            <span t-out="m['amount_out']" t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                         </t>
                                     </td>
                                 </tr>
@@ -161,16 +111,16 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="5" class="text-end"><strong>Totales:</strong></td>
+                                <td colspan="4" class="text-end"><strong>Totales:</strong></td>
                                 <td class="text-end">
                                     <strong>
-                                        <span t-out="sum(movements.filtered(lambda w: w.direction == 'in').mapped('amount'))"
+                                        <span t-out="sum(m['amount_in'] for m in cash_moves)"
                                               t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                     </strong>
                                 </td>
                                 <td class="text-end">
                                     <strong>
-                                        <span t-out="sum(movements.filtered(lambda w: w.direction == 'out').mapped('amount'))"
+                                        <span t-out="sum(m['amount_out'] for m in cash_moves)"
                                               t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                     </strong>
                                 </td>
@@ -178,10 +128,13 @@
                         </tfoot>
                     </table>
                     <p class="text-muted" style="font-size: 0.9em;">
-                        Los movimientos de caja ya están reflejados en el efectivo
-                        esperado (los ingresos suman, los egresos restan). Este detalle
-                        es para trazabilidad por concepto.
+                        Cada línea indica el concepto: cobro de factura, transferencia
+                        entre cajas, ingreso desde central, retiro, pago a proveedor, etc.
+                        Entradas − salidas = variación del efectivo de la sesión.
                     </p>
+                </t>
+                <t t-else="">
+                    <p class="text-muted">Sin movimientos de efectivo en esta sesión.</p>
                 </t>
 
                 <!-- Bloque cheques -->
