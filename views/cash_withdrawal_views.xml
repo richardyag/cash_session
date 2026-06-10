@@ -49,7 +49,8 @@
                     </group>
                     <group string="Pagos generados" invisible="state == 'draft'">
                         <field name="payment_id" readonly="1"/>
-                        <field name="payment_dest_id" readonly="1" invisible="kind != 'transfer'"/>
+                        <field name="payment_dest_id" readonly="1"
+                               invisible="kind not in ('transfer','ingreso_central')"/>
                     </group>
                     <div class="text-muted" invisible="state != 'draft'">
                         <p>El movimiento entra en el arqueo de la caja (la sesión tiene que estar abierta).

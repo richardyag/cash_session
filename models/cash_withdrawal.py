@@ -24,7 +24,7 @@ class CashWithdrawal(models.Model):
     _order = 'date desc, id desc'
 
     KIND_OUT = ('socio', 'proveedor', 'empleado', 'transfer', 'gasto')
-    KIND_IN = ('aporte', 'ingreso')
+    KIND_IN = ('aporte', 'ingreso', 'ingreso_central')
 
     name = fields.Char(
         string='Referencia', default=lambda self: _('Nuevo'),
@@ -37,6 +37,7 @@ class CashWithdrawal(models.Model):
          ('transfer', 'Transferencia a otra caja'),
          ('gasto', 'Gasto / otro egreso'),
          ('aporte', 'Aporte / ingreso'),
+         ('ingreso_central', 'Ingreso desde caja central'),
          ('ingreso', 'Otro ingreso')],
         string='Concepto', required=True, default='socio', tracking=True,
     )
@@ -191,6 +192,23 @@ class CashWithdrawal(models.Model):
             m = _('Transferencia %s → %s') % (self.cash_register_id.name, self.dest_register_id.name)
             self.payment_id = self._make_payment('outbound', bridge, self.journal_id, self.amount, m, transfer=True).id
             self.payment_dest_id = self._make_payment('inbound', bridge, dest_cash[:1], self.amount, m, transfer=True).id
+            self.state = 'posted'
+            return True
+
+        # ingreso desde caja central: entra plata a ESTA caja (impacta su arqueo)
+        # y queda registrado el egreso en el journal de la caja central.
+        if self.kind == 'ingreso_central':
+            central = self.company_id.cash_central_journal_id
+            if not central:
+                raise UserError(_('No hay caja central configurada en la compañía.'))
+            if central == self.journal_id:
+                raise UserError(_('El journal de la caja no puede ser la propia caja central.'))
+            bridge = self._ensure_transfer_partner()
+            m = _('Ingreso desde caja central → %s') % self.cash_register_id.name
+            # Ingreso en esta caja (cuenta en el arqueo de la sesión abierta)
+            self.payment_id = self._make_payment('inbound', bridge, self.journal_id, self.amount, m, transfer=True).id
+            # Egreso registrado en la caja central
+            self.payment_dest_id = self._make_payment('outbound', bridge, central, self.amount, m, transfer=True).id
             self.state = 'posted'
             return True
 

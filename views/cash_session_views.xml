@@ -95,6 +95,39 @@
                             </p>
                         </page>
 
+                        <page string="Recaudación (parcial)" name="live"
+                              invisible="state not in ('open','closing')">
+                            <group>
+                                <group string="Efectivo en caja">
+                                    <field name="current_cash_balance" widget="monetary"/>
+                                    <field name="withdrawal_total" widget="monetary"/>
+                                </group>
+                                <group string="Cobrado en el turno (por medio)">
+                                    <field name="handover_cash_total" widget="monetary"/>
+                                    <field name="handover_check_total" widget="monetary"/>
+                                    <field name="handover_card_total" widget="monetary"/>
+                                    <field name="handover_transfer_total" widget="monetary"/>
+                                </group>
+                            </group>
+                            <separator string="Pagos del turno"/>
+                            <field name="payment_ids" readonly="1">
+                                <list>
+                                    <field name="date"/>
+                                    <field name="journal_id"/>
+                                    <field name="partner_id"/>
+                                    <field name="memo"/>
+                                    <field name="amount" widget="monetary" sum="Total"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                            <p class="text-muted">
+                                Vista de control intermedio: se actualiza sola al abrir la
+                                sesión. "Efectivo esperado en caja" es el teórico actual
+                                (apertura + cobros en efectivo − retiros) para arquear sin
+                                cerrar el turno.
+                            </p>
+                        </page>
+
                         <page string="Extractos" name="statements"
                               invisible="not statement_ids">
                             <field name="statement_ids" readonly="1">

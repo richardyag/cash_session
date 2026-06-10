@@ -74,6 +74,54 @@ class CashSession(models.Model):
             s.withdrawal_total = sum(
                 s.withdrawal_ids.filtered(lambda w: w.state == 'posted').mapped('amount'))
 
+    # ------------------------------------------------------------------
+    # Recaudación parcial (control intermedio con la sesión abierta)
+    # ------------------------------------------------------------------
+    current_cash_balance = fields.Monetary(
+        string='Efectivo esperado en caja (ahora)',
+        compute='_compute_current_balances', currency_field='currency_id',
+        help='Saldo teórico de efectivo en este momento: apertura + cobros en '
+             'efectivo − retiros, calculado en vivo sobre los pagos posteados '
+             'desde la apertura. Sirve para un arqueo de control intermedio sin '
+             'tener que cerrar la sesión.',
+    )
+
+    @api.depends(
+        'opening_line_ids.physical_amount', 'statement_ids',
+        'date_open', 'date_close', 'state', 'withdrawal_ids.state',
+        'cash_register_id.journal_ids',
+    )
+    def _compute_current_balances(self):
+        """Saldo de efectivo esperado en vivo (mismo cálculo que el teórico del
+        cierre, pero disponible mientras la sesión está abierta). Suma, por cada
+        journal de efectivo de la caja: balance inicial + entradas − salidas
+        (account.payment posteados desde la apertura hasta ahora)."""
+        Payment = self.env['account.payment']
+        for s in self:
+            total = 0.0
+            if s.date_open and s.state in ('open', 'closing'):
+                cash_journals = s.cash_register_id.journal_ids.filtered(
+                    lambda j: j.cash_session_kind == 'cash')
+                for j in cash_journals:
+                    stmt = s.statement_ids.filtered(lambda st: st.journal_id == j)
+                    if stmt:
+                        start = stmt[0].balance_start
+                    else:
+                        ol = s.opening_line_ids.filtered(lambda l: l.journal_id == j)
+                        start = ol[:1].physical_amount
+                    domain = [
+                        ('journal_id', '=', j.id),
+                        ('move_id.state', '=', 'posted'),
+                        ('create_date', '>=', s.date_open),
+                    ]
+                    if s.date_close:
+                        domain.append(('create_date', '<=', s.date_close))
+                    pays = Payment.search(domain)
+                    inbound = sum(p.amount for p in pays if p.payment_type == 'inbound')
+                    outbound = sum(p.amount for p in pays if p.payment_type == 'outbound')
+                    total += start + inbound - outbound
+            s.current_cash_balance = total
+
     currency_id = fields.Many2one(
         related='company_id.currency_id', readonly=True,
     )
