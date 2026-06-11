@@ -1,6 +1,6 @@
 {
     'name': 'Caja — Sesiones con turnos rotativos',
-    'version': '19.0.2.10.2',
+    'version': '19.0.2.11.0',
     'category': 'Caja',
     'summary': 'Operación de cajas físicas con apertura/arqueo/cierre y '
                'transferencia automática a caja central. Multi-compañía, '
@@ -31,7 +31,7 @@ Características:
     'author': 'Yagüven C.G.',
     'website': 'https://yaguven.com.ar',
     'license': 'LGPL-3',
-    'depends': ['account', 'l10n_latam_check'],
+    'depends': ['account', 'l10n_latam_check', 'yaguven_payment_group'],
     'data': [
         'security/cash_session_groups.xml',
         'security/ir.model.access.csv',
@@ -40,6 +40,7 @@ Características:
         'views/res_company_views.xml',
         'views/account_journal_views.xml',
         'views/account_payment_views.xml',
+        'views/account_move_views.xml',
         'views/cash_register_views.xml',
         'views/cash_session_views.xml',
         'views/cash_withdrawal_views.xml',
