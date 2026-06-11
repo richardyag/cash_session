@@ -2,6 +2,16 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
+CARD_BRANDS = [
+    ('visa', 'Visa'),
+    ('master', 'Mastercard'),
+    ('cabal', 'Cabal'),
+    ('amex', 'American Express'),
+    ('naranja', 'Naranja X'),
+    ('other', 'Otra'),
+]
+
+
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
@@ -10,6 +20,12 @@ class AccountPayment(models.Model):
         help='Número de comprobante de la transferencia bancaria (CoelSA u '
              'otro identificador del banco). El cajero lo carga al confirmar '
              'el pago. Aparece en la minuta de rendición.',
+    )
+    card_brand = fields.Selection(
+        CARD_BRANDS,
+        string='Red de tarjeta',
+        help='Marca/red de la tarjeta. Solo aplica cuando el diario es tipo tarjeta. '
+             'Aparece en el detalle de la minuta de rendición.',
     )
     is_cash_withdrawal = fields.Boolean(
         string='Es movimiento de caja', default=False, copy=False,
@@ -61,10 +77,8 @@ class AccountBankStatement(models.Model):
 
 
 class AccountPaymentRegister(models.TransientModel):
-    """El wizard que se abre al pagar una factura. Agregamos el campo
-    de N° de comprobante de transferencia para que el cajero lo cargue
-    explícitamente, sin que se confunda con el N° de factura que Odoo
-    autocompleta en Memo."""
+    """El wizard que se abre al pagar una factura. Agregamos los campos
+    de N° comprobante de transferencia y red de tarjeta."""
     _inherit = 'account.payment.register'
 
     transfer_reference = fields.Char(
@@ -72,15 +86,23 @@ class AccountPaymentRegister(models.TransientModel):
         help='Número de comprobante de la transferencia bancaria (CoelSA u '
              'otro identificador del banco).',
     )
+    card_brand = fields.Selection(
+        CARD_BRANDS,
+        string='Red de tarjeta',
+    )
 
     def _create_payment_vals_from_wizard(self, batch_result):
         vals = super()._create_payment_vals_from_wizard(batch_result)
         if self.transfer_reference:
             vals['transfer_reference'] = self.transfer_reference
+        if self.card_brand:
+            vals['card_brand'] = self.card_brand
         return vals
 
     def _create_payment_vals_from_batch(self, batch_result):
         vals = super()._create_payment_vals_from_batch(batch_result)
         if self.transfer_reference:
             vals['transfer_reference'] = self.transfer_reference
+        if self.card_brand:
+            vals['card_brand'] = self.card_brand
         return vals

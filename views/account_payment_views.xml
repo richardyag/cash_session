@@ -29,6 +29,23 @@
                        invisible="journal_id.cash_session_kind != 'bank'"
                        placeholder="Ej: CoelSA 1234567"
                        string="N° comprobante de transferencia"/>
+                <field name="card_brand"
+                       invisible="journal_id.cash_session_kind != 'card'"
+                       string="Red de tarjeta"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- account.payment form: mostrar red de tarjeta y N° comprobante -->
+    <record id="view_account_payment_form_inherit_card_brand" model="ir.ui.view">
+        <field name="name">account.payment.form.card.brand</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='memo']" position="after">
+                <field name="card_brand"
+                       invisible="journal_id.cash_session_kind != 'card'"
+                       string="Red de tarjeta"/>
             </xpath>
         </field>
     </record>
