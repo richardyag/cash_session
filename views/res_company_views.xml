@@ -14,6 +14,11 @@
                                    options="{'no_create': True}"/>
                         </div>
                         <div class="row mt8">
+                            <label for="cash_difference_income_account_id" class="col-3 o_light_label"/>
+                            <field name="cash_difference_income_account_id"
+                                   options="{'no_create': True}"/>
+                        </div>
+                        <div class="row mt8">
                             <label for="cash_central_journal_id" class="col-3 o_light_label"/>
                             <field name="cash_central_journal_id"
                                    options="{'no_create': True}"/>
@@ -31,6 +36,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='company_id']" position="after">
                 <field name="cash_difference_account_id" invisible="1"/>
+                <field name="cash_difference_income_account_id" invisible="1"/>
                 <field name="cash_central_journal_id" invisible="1"/>
             </xpath>
         </field>

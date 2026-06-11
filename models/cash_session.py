@@ -362,11 +362,18 @@ class CashSession(models.Model):
                 'que justifique la diferencia antes de cerrar.',
                 d=self.difference_total,
             ))
-        if self.difference_total and not company.cash_difference_account_id:
-            raise UserError(_(
-                'Configurá la cuenta de diferencias de caja en la compañía '
-                'antes de cerrar con diferencia.'
-            ))
+        if self.difference_total:
+            missing = []
+            if not company.cash_difference_account_id:
+                missing.append(_('pérdida / faltante'))
+            if not company.cash_difference_income_account_id:
+                missing.append(_('ganancia / sobrante'))
+            if missing:
+                raise UserError(_(
+                    'Configurá las cuentas de diferencias de caja en la compañía '
+                    'antes de cerrar con diferencia: %(m)s.',
+                    m=_(' y ').join(missing),
+                ))
 
         # 1. Cerrar cada statement con balance_end_real = physical_amount
         for cl in self.closing_line_ids:

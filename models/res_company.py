@@ -6,10 +6,17 @@ class ResCompany(models.Model):
 
     cash_difference_account_id = fields.Many2one(
         'account.account',
-        string='Cuenta de diferencias de caja',
-        domain="[('deprecated', '=', False), ('company_ids', 'in', id)]",
-        help='Cuenta donde se imputan las diferencias (faltantes o sobrantes) '
-             'al cerrar las sesiones de caja con arqueo distinto al teórico.',
+        string='Diferencias de caja — Pérdida (faltante)',
+        domain="[('company_ids', 'in', id)]",
+        help='Cuenta de gasto donde se imputan los FALTANTES de caja '
+             '(cuando el efectivo físico es menor al teórico).',
+    )
+    cash_difference_income_account_id = fields.Many2one(
+        'account.account',
+        string='Diferencias de caja — Ganancia (sobrante)',
+        domain="[('company_ids', 'in', id)]",
+        help='Cuenta de ingreso donde se imputan los SOBRANTES de caja '
+             '(cuando el efectivo físico es mayor al teórico).',
     )
     cash_central_journal_id = fields.Many2one(
         'account.journal',
