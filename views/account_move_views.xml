@@ -2,7 +2,7 @@
 <odoo>
 
     <!-- Redirige el botón "Pay" de account.move al flujo de Yagüven Payment Group
-         (action_force_register_payment) en lugar del wizard nativo de Odoo.
+         (action_open_payment_group) en lugar del wizard nativo de Odoo.
          Hay dos botones con el mismo name pero diferente id:
            - account_invoice_payment_btn: cuando NO hay pagos pendientes de aplicar
            - account_invoice_payment_secondary_btn: cuando SÍ los hay
@@ -13,10 +13,10 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//button[@id='account_invoice_payment_btn']" position="attributes">
-                <attribute name="name">action_force_register_payment</attribute>
+                <attribute name="name">action_open_payment_group</attribute>
             </xpath>
             <xpath expr="//button[@id='account_invoice_payment_secondary_btn']" position="attributes">
-                <attribute name="name">action_force_register_payment</attribute>
+                <attribute name="name">action_open_payment_group</attribute>
             </xpath>
         </field>
     </record>
