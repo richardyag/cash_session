@@ -15,8 +15,8 @@ class ProductPriceUpdate(models.TransientModel):
     pct_increase = fields.Float(
         string='Aumento %',
         required=True,
-        default=6.0,
-        help='Porcentaje de aumento sobre el costo actual. Ej: 6 = +6%.',
+        default=0.06,
+        help='Porcentaje de aumento. Ej: escribí 6 para +6%.',
     )
     product_count = fields.Integer(
         string='Productos a actualizar',
@@ -39,7 +39,8 @@ class ProductPriceUpdate(models.TransientModel):
         if self.pct_increase == 0:
             raise UserError(_('El porcentaje de aumento no puede ser cero.'))
 
-        factor = 1.0 + self.pct_increase / 100.0
+        # pct_increase viene del widget="percentage": el usuario escribe 6, se guarda 0.06
+        factor = 1.0 + self.pct_increase
         products = self.env['product.template'].search([
             ('categ_id', 'child_of', self.categ_id.id),
             ('active', '=', True),
@@ -63,7 +64,7 @@ class ProductPriceUpdate(models.TransientModel):
                 'title': _('Precios actualizados'),
                 'message': _(
                     '%d productos de "%s" actualizados con +%.1f%%.'
-                ) % (count, self.categ_id.name, self.pct_increase),
+                ) % (count, self.categ_id.name, self.pct_increase * 100),
                 'type': 'success',
                 'sticky': True,
             },

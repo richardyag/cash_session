@@ -8,3 +8,4 @@ from . import account_payment
 from . import cash_withdrawal
 from . import cash_session_help
 from . import account_move
+from . import product_template
