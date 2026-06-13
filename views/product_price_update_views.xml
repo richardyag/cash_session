@@ -49,7 +49,7 @@
         id="menu_product_price_update"
         name="Actualizar precios"
         action="action_product_price_update"
-        parent="stock.menu_stock_products"
+        parent="stock.menu_stock_inventory_control"
         sequence="99"/>
 
 </odoo>
