@@ -13,9 +13,8 @@
                     <group>
                         <group string="Parámetros">
                             <field name="categ_id"/>
-                            <field name="pct_increase" widget="percentage"
-                                   options="{'type': 'number'}"
-                                   string="Aumento %"/>
+                            <field name="pct_increase" string="Aumento %"
+                                   help="Ingresá el número directamente. Ej: 6 = +6%, 10 = +10%"/>
                         </group>
                         <group string="Resumen">
                             <field name="product_count" string="Productos afectados"/>
