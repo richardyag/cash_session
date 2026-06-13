@@ -9,3 +9,4 @@ access_cash_session_help_user,cash.session.help user,model_cash_session_help,gro
 access_cash_session_help_manager,cash.session.help manager,model_cash_session_help,group_cash_manager,1,1,1,1
 access_cash_withdrawal_wd,cash.withdrawal extracciones,model_cash_withdrawal,group_cash_withdrawal,1,1,1,1
 access_cash_withdrawal_manager,cash.withdrawal manager,model_cash_withdrawal,group_cash_manager,1,0,0,0
+access_product_price_update,product.price.update,model_product_price_update,base.group_user,1,1,1,1

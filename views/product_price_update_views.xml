@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_product_price_update_form" model="ir.ui.view">
+        <field name="name">product.price.update.form</field>
+        <field name="model">product.price.update</field>
+        <field name="arch" type="xml">
+            <form string="Actualizar precios por categoría">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Actualización de precios</h1>
+                    </div>
+                    <group>
+                        <group string="Parámetros">
+                            <field name="categ_id"/>
+                            <field name="pct_increase" widget="percentage"
+                                   options="{'type': 'number'}"
+                                   string="Aumento %"/>
+                        </group>
+                        <group string="Resumen">
+                            <field name="product_count" string="Productos afectados"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fa fa-info-circle"/> El sistema actualizará el
+                        <strong>costo</strong> de cada producto aplicando el porcentaje indicado,
+                        y recalculará el <strong>precio de venta</strong> automáticamente
+                        usando el margen ya cargado en cada producto.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object"
+                            string="Aplicar actualización" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_product_price_update" model="ir.actions.act_window">
+        <field name="name">Actualizar precios por categoría</field>
+        <field name="res_model">product.price.update</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menú bajo Inventario > Productos -->
+    <menuitem
+        id="menu_product_price_update"
+        name="Actualizar precios"
+        action="action_product_price_update"
+        parent="stock.menu_stock_products"
+        sequence="99"/>
+
+</odoo>
