@@ -30,7 +30,7 @@
                 <footer>
                     <button name="action_apply" type="object"
                             string="Aplicar actualización" class="btn-primary"/>
-                    <button special="cancel" string="Cancelar" class="btn-secondary"/>
+                    <button special="cancel" string="Cancelar / Cerrar" class="btn-secondary"/>
                 </footer>
             </form>
         </field>
