@@ -4,13 +4,17 @@ from odoo.exceptions import UserError
 
 class ProductPriceUpdate(models.TransientModel):
     _name = 'product.price.update'
-    _description = 'Actualización de precios por categoría'
+    _description = 'Actualización de precios por familia'
 
-    categ_id = fields.Many2one(
-        'product.category',
-        string='Categoría de producto',
+    # Familia = campo Studio x_familia_id (Many2one a x_familia_producto) en
+    # product.template. Para NO acoplar este módulo de código al modelo manual
+    # de Studio en el setup del registry (puede romper el build), la familia se
+    # ofrece como Selection dinámico leído en runtime, y guardamos el id como str.
+    x_familia = fields.Selection(
+        selection='_get_familia_options',
+        string='Familia',
         required=True,
-        help='Todos los productos de esta categoría (y subcategorías) serán actualizados.',
+        help='Todos los productos de esta familia serán actualizados.',
     )
     pct_increase = fields.Float(
         string='Aumento %',
@@ -23,30 +27,45 @@ class ProductPriceUpdate(models.TransientModel):
         compute='_compute_product_count',
     )
 
-    @api.depends('categ_id')
+    @api.model
+    def _get_familia_options(self):
+        Familia = self.env.get('x_familia_producto')
+        if Familia is None:
+            return []
+        return [(str(f.id), f.display_name) for f in Familia.search([], order='x_name')]
+
+    def _familia_domain(self):
+        """Domain de productos de la familia elegida."""
+        return [
+            ('x_familia_id', '=', int(self.x_familia)),
+            ('active', '=', True),
+        ]
+
+    def _familia_label(self):
+        Familia = self.env['x_familia_producto'].browse(int(self.x_familia))
+        return Familia.display_name
+
+    @api.depends('x_familia')
     def _compute_product_count(self):
         for rec in self:
-            if rec.categ_id:
-                rec.product_count = self.env['product.template'].search_count([
-                    ('categ_id', 'child_of', rec.categ_id.id),
-                    ('active', '=', True),
-                ])
+            if rec.x_familia:
+                rec.product_count = self.env['product.template'].search_count(
+                    rec._familia_domain())
             else:
                 rec.product_count = 0
 
     def action_apply(self):
         self.ensure_one()
+        if not self.x_familia:
+            raise UserError(_('Elegí una familia.'))
         if self.pct_increase == 0:
             raise UserError(_('El porcentaje de aumento no puede ser cero.'))
 
         # pct_increase viene del widget="percentage": el usuario escribe 6, se guarda 0.06
         factor = 1.0 + self.pct_increase
-        products = self.env['product.template'].search([
-            ('categ_id', 'child_of', self.categ_id.id),
-            ('active', '=', True),
-        ])
+        products = self.env['product.template'].search(self._familia_domain())
         if not products:
-            raise UserError(_('No se encontraron productos activos en la categoría "%s".') % self.categ_id.name)
+            raise UserError(_('No se encontraron productos activos en la familia "%s".') % self._familia_label())
 
         count = 0
         for p in products:
@@ -64,7 +83,7 @@ class ProductPriceUpdate(models.TransientModel):
                 'title': _('Precios actualizados'),
                 'message': _(
                     '%d productos de "%s" actualizados con +%.1f%%.'
-                ) % (count, self.categ_id.name, self.pct_increase * 100),
+                ) % (count, self._familia_label(), self.pct_increase * 100),
                 'type': 'success',
                 'sticky': True,
             },

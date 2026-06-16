@@ -5,14 +5,14 @@
         <field name="name">product.price.update.form</field>
         <field name="model">product.price.update</field>
         <field name="arch" type="xml">
-            <form string="Actualizar precios por categoría">
+            <form string="Actualizar precios por familia">
                 <sheet>
                     <div class="oe_title">
                         <h1>Actualización de precios</h1>
                     </div>
                     <group>
                         <group string="Parámetros">
-                            <field name="categ_id"/>
+                            <field name="x_familia"/>
                             <field name="pct_increase" widget="percentage" string="Aumento %"
                                    help="Ingresá el número directamente. Ej: 6 = +6%, 10 = +10%."/>
                         </group>
@@ -37,7 +37,7 @@
     </record>
 
     <record id="action_product_price_update" model="ir.actions.act_window">
-        <field name="name">Actualizar precios por categoría</field>
+        <field name="name">Actualizar precios por familia</field>
         <field name="res_model">product.price.update</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
