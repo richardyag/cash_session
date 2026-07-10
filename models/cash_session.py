@@ -60,68 +60,6 @@ class CashSession(models.Model):
         readonly=True, copy=False,
     )
 
-    withdrawal_ids = fields.One2many(
-        'cash.withdrawal', 'session_id', string='Extracciones / retiros',
-    )
-    withdrawal_total = fields.Monetary(
-        string='Total retiros', compute='_compute_withdrawal_total',
-        currency_field='currency_id',
-    )
-
-    @api.depends('withdrawal_ids.amount', 'withdrawal_ids.state')
-    def _compute_withdrawal_total(self):
-        for s in self:
-            s.withdrawal_total = sum(
-                s.withdrawal_ids.filtered(lambda w: w.state == 'posted').mapped('amount'))
-
-    # ------------------------------------------------------------------
-    # Recaudación parcial (control intermedio con la sesión abierta)
-    # ------------------------------------------------------------------
-    current_cash_balance = fields.Monetary(
-        string='Efectivo esperado en caja (ahora)',
-        compute='_compute_current_balances', currency_field='currency_id',
-        help='Saldo teórico de efectivo en este momento: apertura + cobros en '
-             'efectivo − retiros, calculado en vivo sobre los pagos posteados '
-             'desde la apertura. Sirve para un arqueo de control intermedio sin '
-             'tener que cerrar la sesión.',
-    )
-
-    @api.depends(
-        'opening_line_ids.physical_amount', 'statement_ids',
-        'date_open', 'date_close', 'state', 'withdrawal_ids.state',
-        'cash_register_id.journal_ids',
-    )
-    def _compute_current_balances(self):
-        """Saldo de efectivo esperado en vivo (mismo cálculo que el teórico del
-        cierre, pero disponible mientras la sesión está abierta). Suma, por cada
-        journal de efectivo de la caja: balance inicial + entradas − salidas
-        (account.payment posteados desde la apertura hasta ahora)."""
-        Payment = self.env['account.payment']
-        for s in self:
-            total = 0.0
-            if s.date_open and s.state in ('open', 'closing'):
-                cash_journals = s.cash_register_id.journal_ids.filtered(
-                    lambda j: j.cash_session_kind == 'cash')
-                for j in cash_journals:
-                    stmt = s.statement_ids.filtered(lambda st: st.journal_id == j)
-                    if stmt:
-                        start = stmt[0].balance_start
-                    else:
-                        ol = s.opening_line_ids.filtered(lambda l: l.journal_id == j)
-                        start = ol[:1].physical_amount
-                    domain = [
-                        ('journal_id', '=', j.id),
-                        ('move_id.state', '=', 'posted'),
-                        ('create_date', '>=', s.date_open),
-                    ]
-                    if s.date_close:
-                        domain.append(('create_date', '<=', s.date_close))
-                    pays = Payment.search(domain)
-                    inbound = sum(p.amount for p in pays if p.payment_type == 'inbound')
-                    outbound = sum(p.amount for p in pays if p.payment_type == 'outbound')
-                    total += start + inbound - outbound
-            s.current_cash_balance = total
-
     currency_id = fields.Many2one(
         related='company_id.currency_id', readonly=True,
     )
@@ -362,31 +300,25 @@ class CashSession(models.Model):
                 'que justifique la diferencia antes de cerrar.',
                 d=self.difference_total,
             ))
-        if self.difference_total:
-            missing = []
-            if not company.cash_difference_account_id:
-                missing.append(_('pérdida / faltante'))
-            if not company.cash_difference_income_account_id:
-                missing.append(_('ganancia / sobrante'))
-            if missing:
-                raise UserError(_(
-                    'Configurá las cuentas de diferencias de caja en la compañía '
-                    'antes de cerrar con diferencia: %(m)s.',
-                    m=_(' y ').join(missing),
-                ))
+        if self.difference_total and not company.cash_difference_account_id:
+            raise UserError(_(
+                'Configurá la cuenta de diferencias de caja en la compañía '
+                'antes de cerrar con diferencia.'
+            ))
 
         # 1. Cerrar cada statement con balance_end_real = physical_amount
+        # Usamos sudo() para que el cierre del sistema no dispare el candado
+        # de cobranzas (automation HP: candado de caja), que está diseñado
+        # para bloquear a usuarios sin sesión abierta, no al propio cierre.
         for cl in self.closing_line_ids:
             stmt = self.statement_ids.filtered(lambda s: s.journal_id == cl.journal_id)
             if not stmt:
                 continue
-            stmt = stmt[0]
+            stmt = stmt[0].sudo()
             stmt.balance_end_real = cl.physical_amount
-            # Postear: Odoo nativo crea ajuste de diferencia si balance_end_real != balance_end
             try:
                 stmt.button_validate()
             except Exception:
-                # Algunas versiones usan action_post / button_post
                 try:
                     stmt.action_post()
                 except Exception:
@@ -397,121 +329,62 @@ class CashSession(models.Model):
 
         self.state = 'closed'
 
-    def _transfer_bridge_partner(self):
-        """Partner puente para mover efectivo entre cajas / a caja central, con
-        una cuenta de enlace (transferencias de liquidez)."""
-        company = self.company_id
-        Partner = self.env['res.partner']
-        p = Partner.sudo().search([('ref', '=', 'TRANSF-CAJAS')], limit=1)
-        if p:
-            return p
-        acc = company.transfer_account_id
-        if not acc:
-            acc = self.env['account.account'].sudo().with_company(company).search([
-                ('account_type', '=', 'asset_current'), ('reconcile', '=', True)], limit=1)
-        p = Partner.sudo().create({'name': 'Transferencias entre cajas', 'ref': 'TRANSF-CAJAS'})
-        if acc:
-            p.with_company(company).write({
-                'property_account_payable_id': acc.id,
-                'property_account_receivable_id': acc.id})
-        return p
-
     def _transfer_to_central(self):
-        """Rinde el efectivo de la sesión a la caja central mediante pagos puente:
-        egreso en el journal de la sucursal + INGRESO en la caja central. Así la
-        caja central VE la rendición en su arqueo (cuenta como pago inbound).
+        """Genera un account.move moviendo a la caja central únicamente
+        el efectivo (journals cash_session_kind='cash').
 
-        Los pagos se crean en el cierre (create_date > date_close), por lo que NO
-        afectan el arqueo de esta sesión (que se calcula hasta date_close).
-        Los cheques de tercero NO se transfieren (quedan en cartera).
+        Los cheques de tercero NO se transfieren: quedan en su cuenta de
+        cartera (Third Party Checks) — son instrumentos individuales que
+        l10n_latam_check trackea por cheque, no por caja física. La caja
+        física es solo el lugar de recepción inicial; el cheque pertenece
+        a la cartera de la compañía hasta que se endosa/deposita/devuelve.
         """
         self.ensure_one()
         company = self.company_id
         central = company.cash_central_journal_id
         if not central:
             return
-        bridge = self._transfer_bridge_partner()
-        Payment = self.env['account.payment']
-        first = False
+
+        Move = self.env['account.move']
+        lines_to_create = []
         for cl in self.closing_line_ids:
             j = cl.journal_id
-            if j.cash_session_kind != 'cash' or j == central:
+            # Solo efectivo se transfiere a caja central
+            if j.cash_session_kind != 'cash':
                 continue
             amount = cl.physical_amount
             if not amount:
                 continue
-            label = _('Rendición %(s)s — %(j)s', s=self.name, j=j.code or j.name)
-            out = Payment.sudo().with_company(company).create({
-                'payment_type': 'outbound', 'partner_type': 'supplier', 'partner_id': bridge.id,
-                'amount': amount, 'date': fields.Date.context_today(self), 'journal_id': j.id,
-                'company_id': company.id, 'memo': label, 'is_cash_transfer': True})
-            out.action_post()
-            inp = Payment.sudo().with_company(company).create({
-                'payment_type': 'inbound', 'partner_type': 'customer', 'partner_id': bridge.id,
-                'amount': amount, 'date': fields.Date.context_today(self), 'journal_id': central.id,
-                'company_id': company.id, 'memo': label, 'is_cash_transfer': True})
-            inp.action_post()
-            if not first and inp.move_id:
-                self.transfer_move_id = inp.move_id.id
-                first = True
+            origin_acc = j.default_account_id
+            dest_acc = central.default_account_id
+            if not origin_acc or not dest_acc:
+                continue
+            label = _('Transferencia cierre %(s)s — %(j)s', s=self.name, j=j.code or j.name)
+            lines_to_create.append((origin_acc, dest_acc, amount, label, j))
 
-    def get_cash_movements(self):
-        """Lista clasificada de TODOS los movimientos de efectivo de la sesión,
-        para el detalle de la minuta. Cada pago en un journal de efectivo se
-        etiqueta por concepto (cobro de factura, transferencia entre cajas,
-        ingreso desde central, retiro, pago a proveedor, etc.) y se separa en
-        entrada/salida. Así el detalle dice QUÉ es cada línea, no solo 'cobros'.
-        """
-        self.ensure_one()
-        Payment = self.env['account.payment']
-        cash_journals = self.cash_register_id.journal_ids.filtered(
-            lambda j: j.cash_session_kind == 'cash')
-        if not cash_journals or not self.date_open:
-            return []
-        domain = [
-            ('journal_id', 'in', cash_journals.ids),
-            ('move_id.state', '=', 'posted'),
-            ('create_date', '>=', self.date_open),
-        ]
-        if self.date_close:
-            domain.append(('create_date', '<=', self.date_close))
-        payments = Payment.search(domain)
-        # Mapa pago -> movimiento de caja (cash.withdrawal) de esta sesión
-        wd_by_payment = {}
-        for w in self.withdrawal_ids.filtered(lambda w: w.state == 'posted'):
-            if w.payment_id:
-                wd_by_payment[w.payment_id.id] = w
-            if w.payment_dest_id:
-                wd_by_payment[w.payment_dest_id.id] = w
-        kind_labels = dict(self.env['cash.withdrawal']._fields['kind'].selection)
-        lines = []
-        for p in payments.sorted('date'):
-            w = wd_by_payment.get(p.id)
-            if p.reconciled_invoice_ids:
-                concept = _('Cobro de factura')
-                reference = ', '.join(p.reconciled_invoice_ids.mapped('name'))
-                partner = p.partner_id.name or ''
-            elif w:
-                concept = kind_labels.get(w.kind, _('Movimiento de caja'))
-                reference = w.memo or ''
-                partner = w.partner_id.name or (w.dest_register_id.name if w.dest_register_id else '')
-            elif p.is_cash_transfer:
-                concept = _('Transferencia entre cajas')
-                reference = p.memo or ''
-                partner = ''
-            else:
-                concept = _('Cobro') if p.payment_type == 'inbound' else _('Pago')
-                reference = p.memo or ''
-                partner = p.partner_id.name or ''
-            lines.append({
-                'date': p.date,
-                'concept': concept,
-                'partner': partner,
-                'reference': reference,
-                'amount_in': p.amount if p.payment_type == 'inbound' else 0.0,
-                'amount_out': p.amount if p.payment_type == 'outbound' else 0.0,
-            })
-        return lines
+        if not lines_to_create:
+            return
+
+        # Un único asiento con todas las líneas (más limpio para revisar)
+        move_lines = []
+        for origin_acc, dest_acc, amount, label, j in lines_to_create:
+            move_lines.append((0, 0, {
+                'account_id': origin_acc.id, 'name': label,
+                'credit': amount, 'debit': 0,
+            }))
+            move_lines.append((0, 0, {
+                'account_id': dest_acc.id, 'name': label,
+                'debit': amount, 'credit': 0,
+            }))
+        move = Move.sudo().create({
+            'journal_id': central.id,
+            'date': fields.Date.context_today(self),
+            'ref': _('Cierre sesión %s') % self.name,
+            'company_id': company.id,
+            'line_ids': move_lines,
+        })
+        move.sudo().action_post()
+        self.transfer_move_id = move.id
 
     def action_print_handover(self):
         """Imprime el report de minuta de rendición de la sesión."""
