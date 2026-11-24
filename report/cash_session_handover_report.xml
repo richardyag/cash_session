@@ -284,59 +284,61 @@
 
                 <!-- ANEXO — Facturas canceladas en la sesión -->
                 <t t-if="o.paid_invoice_ids">
-                    <h5 class="mt-3">Anexo — Facturas canceladas en esta sesión</h5>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>N° factura</th>
-                                <th>Cliente</th>
-                                <th class="text-center">Fecha</th>
-                                <th class="text-end">Total</th>
-                                <th class="text-end">Saldo</th>
-                                <th class="text-center">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <t t-foreach="o.paid_invoice_ids" t-as="inv">
+                    <div style="page-break-inside: avoid;">
+                        <h5 class="mt-3">Anexo — Facturas canceladas en esta sesión</h5>
+                        <table class="table table-sm">
+                            <thead>
                                 <tr>
-                                    <td><span t-field="inv.name"/></td>
-                                    <td><span t-field="inv.partner_id.name"/></td>
-                                    <td class="text-center"><span t-field="inv.invoice_date"/></td>
-                                    <td class="text-end">
-                                        <span t-field="inv.amount_total" t-options='{"widget": "monetary", "display_currency": inv.currency_id}'/>
-                                    </td>
-                                    <td class="text-end">
-                                        <span t-field="inv.amount_residual" t-options='{"widget": "monetary", "display_currency": inv.currency_id}'/>
-                                    </td>
-                                    <td class="text-center">
-                                        <t t-if="inv.payment_state == 'paid'">
-                                            <span style="color: #2e8b57;"><strong>Pagada</strong></span>
-                                        </t>
-                                        <t t-elif="inv.payment_state == 'partial'">
-                                            <span style="color: #cc7700;">Parcial</span>
-                                        </t>
-                                        <t t-else="">
-                                            <span t-field="inv.payment_state"/>
-                                        </t>
-                                    </td>
+                                    <th>N° factura</th>
+                                    <th>Cliente</th>
+                                    <th class="text-center">Fecha</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Saldo</th>
+                                    <th class="text-center">Estado</th>
                                 </tr>
-                            </t>
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                                <td class="text-end">
-                                    <strong><span t-out="sum(o.paid_invoice_ids.mapped('amount_total'))"
-                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></strong>
-                                </td>
-                                <td class="text-end">
-                                    <strong><span t-out="sum(o.paid_invoice_ids.mapped('amount_residual'))"
-                                          t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></strong>
-                                </td>
-                                <td/>
-                            </tr>
-                        </tfoot>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="o.paid_invoice_ids" t-as="inv">
+                                    <tr>
+                                        <td><span t-field="inv.name"/></td>
+                                        <td><span t-field="inv.partner_id.name"/></td>
+                                        <td class="text-center"><span t-field="inv.invoice_date"/></td>
+                                        <td class="text-end">
+                                            <span t-field="inv.amount_total" t-options='{"widget": "monetary", "display_currency": inv.currency_id}'/>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-field="inv.amount_residual" t-options='{"widget": "monetary", "display_currency": inv.currency_id}'/>
+                                        </td>
+                                        <td class="text-center">
+                                            <t t-if="inv.payment_state == 'paid'">
+                                                <span style="color: #2e8b57;"><strong>Pagada</strong></span>
+                                            </t>
+                                            <t t-elif="inv.payment_state == 'partial'">
+                                                <span style="color: #cc7700;">Parcial</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-field="inv.payment_state"/>
+                                            </t>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end">
+                                        <strong><span t-out="sum(o.paid_invoice_ids.mapped('amount_total'))"
+                                              t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></strong>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong><span t-out="sum(o.paid_invoice_ids.mapped('amount_residual'))"
+                                              t-options='{"widget": "monetary", "display_currency": o.currency_id}'/></strong>
+                                    </td>
+                                    <td/>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </t>
             </div>
         </t>
